@@ -1,4 +1,5 @@
 const functions = require('firebase-functions');
+const https = require('https');
 
 const admin = require('firebase-admin');
 admin.initializeApp();
@@ -76,6 +77,74 @@ exports.addFollower = functions.firestore.document('/following/{userId}/userFoll
                         followingCount: admin.firestore.FieldValue.increment(1)
                     })
             })
+    })
+
+// Sends an Expo push notification (same payload as the client `sendNotification` action).
+const sendPushNotification = (to, title, body, data) => {
+    const payload = JSON.stringify({ to, sound: 'default', title, body, data });
+
+    return new Promise((resolve, reject) => {
+        const req = https.request({
+            hostname: 'exp.host',
+            path: '/--/api/v2/push/send',
+            method: 'POST',
+            headers: {
+                Accept: 'application/json',
+                'Content-Type': 'application/json',
+                'Content-Length': Buffer.byteLength(payload)
+            }
+        }, (res) => {
+            let responseBody = '';
+            res.on('data', (chunk) => { responseBody += chunk; });
+            res.on('end', () => {
+                if (res.statusCode >= 200 && res.statusCode < 300) {
+                    resolve(responseBody);
+                } else {
+                    reject(new Error(`Expo push API responded ${res.statusCode}: ${responseBody}`));
+                }
+            });
+        });
+        req.on('error', reject);
+        req.write(payload);
+        req.end();
+    });
+};
+
+exports.addFollowerNotification = functions.firestore.document('/following/{userId}/userFollowing/{FollowingId}')
+    .onCreate(async (snap, context) => {
+        const followerId = context.params.userId;
+        const followedId = context.params.FollowingId;
+
+        try {
+            const [followedDoc, followerDoc] = await Promise.all([
+                db.collection('users').doc(followedId).get(),
+                db.collection('users').doc(followerId).get()
+            ]);
+
+            if (!followedDoc.exists || !followerDoc.exists) {
+                console.log(`addFollowerNotification: user document missing (followed: ${followedDoc.exists}, follower: ${followerDoc.exists})`);
+                return null;
+            }
+
+            const token = followedDoc.data().notificationToken;
+            if (!token) {
+                console.log(`addFollowerNotification: user ${followedId} has no notification token`);
+                return null;
+            }
+
+            const followerName = followerDoc.data().name;
+            await sendPushNotification(
+                token,
+                'New Follower',
+                `${followerName} Started following you`,
+                { type: 'profile', user: followerId }
+            );
+            console.log(`addFollowerNotification: notified ${followedId} about new follower ${followerId}`);
+            return null;
+        } catch (error) {
+            console.error('addFollowerNotification failed', error);
+            return null;
+        }
     })
 
 exports.removeFollower = functions.firestore.document('/following/{userId}/userFollowing/{FollowingId}')
