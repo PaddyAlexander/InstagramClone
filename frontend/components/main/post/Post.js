@@ -24,6 +24,7 @@ function Post(props) {
     const [item, setItem] = useState(props.route.params.item)
     const [user, setUser] = useState(props.route.params.user)
     const [currentUserLike, setCurrentUserLike] = useState(false)
+    const [currentUserBookmark, setCurrentUserBookmark] = useState(false)
     const [unmutted, setUnmutted] = useState(true)
     const [videoref, setvideoref] = useState(null)
     const [sheetRef, setSheetRef] = useState(useRef(null))
@@ -81,6 +82,19 @@ function Post(props) {
                     setCurrentUserLike(currentUserLike)
 
                 })
+            firebase.firestore()
+                .collection("bookmarks")
+                .doc(firebase.auth().currentUser.uid)
+                .collection("userBookmarks")
+                .doc(props.route.params.user + "_" + props.route.params.item)
+                .onSnapshot((snapshot) => {
+                    let currentUserBookmark = false;
+                    if (snapshot.exists) {
+                        currentUserBookmark = true;
+                    }
+                    setCurrentUserBookmark(currentUserBookmark)
+
+                })
 
         }
         else {
@@ -97,6 +111,19 @@ function Post(props) {
                         currentUserLike = true;
                     }
                     setCurrentUserLike(currentUserLike)
+
+                })
+            firebase.firestore()
+                .collection("bookmarks")
+                .doc(firebase.auth().currentUser.uid)
+                .collection("userBookmarks")
+                .doc(props.route.params.user.uid + "_" + props.route.params.item.id)
+                .onSnapshot((snapshot) => {
+                    let currentUserBookmark = false;
+                    if (snapshot.exists) {
+                        currentUserBookmark = true;
+                    }
+                    setCurrentUserBookmark(currentUserBookmark)
 
                 })
 
@@ -157,6 +184,29 @@ function Post(props) {
             .doc(postId)
             .collection("likes")
             .doc(firebase.auth().currentUser.uid)
+            .delete()
+    }
+    const onBookmarkPress = (userId, postId, item) => {
+        setCurrentUserBookmark(true)
+        firebase.firestore()
+            .collection("bookmarks")
+            .doc(firebase.auth().currentUser.uid)
+            .collection("userBookmarks")
+            .doc(userId + "_" + postId)
+            .set({
+                postId: postId,
+                userId: userId,
+                timestamp: firebase.firestore.FieldValue.serverTimestamp(),
+                postData: item
+            })
+    }
+    const onRemoveBookmarkPress = (userId, postId, item) => {
+        setCurrentUserBookmark(false)
+        firebase.firestore()
+            .collection("bookmarks")
+            .doc(firebase.auth().currentUser.uid)
+            .collection("userBookmarks")
+            .doc(userId + "_" + postId)
             .delete()
     }
     if (!exists && loaded) {
@@ -349,7 +399,15 @@ function Post(props) {
                     }
                     <Feather style={utils.margin15Left} name="message-square" size={30} color="black" onPress={() => props.navigation.navigate('Comment', { postId: item.id, uid: user.uid, user })} />
                     <Feather style={utils.margin15Left} name="share" size={26} color="black" onPress={() => props.navigation.navigate('ChatList', { postId: item.id, post: { ...item, user: user }, share: true })} />
-
+                    {currentUserBookmark ?
+                        (
+                            <Feather style={[utils.margin15Left, { marginLeft: 'auto' }]} name="bookmark" size={30} color="black" onPress={() => onRemoveBookmarkPress(user.uid, item.id, item)} />
+                        )
+                        :
+                        (
+                            <Feather style={[utils.margin15Left, { marginLeft: 'auto' }]} name="bookmark" size={30} color="lightgrey" onPress={() => onBookmarkPress(user.uid, item.id, item)} />
+                        )
+                    }
 
                 </View>
                 <View style={[container.container, utils.padding10Sides]}>

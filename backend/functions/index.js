@@ -74,3 +74,36 @@ exports.addComment = functions.firestore.document('/posts/{creatorId}/userPosts/
                 commentsCount: admin.firestore.FieldValue.increment(1)
             })
     })
+
+exports.addBookmark = functions.firestore.document('/bookmarks/{userId}/userBookmarks/{bookmarkId}')
+    .onCreate((snap, context) => {
+        const bookmarkData = snap.data();
+        const postId = bookmarkData.postId;
+        const creatorId = bookmarkData.userId;
+
+        return db
+            .collection("posts")
+            .doc(creatorId)
+            .collection("userPosts")
+            .doc(postId)
+            .update({
+                bookmarkCount: admin.firestore.FieldValue.increment(1)
+            })
+    });
+
+exports.removeBookmark = functions.firestore.document('/bookmarks/{userId}/userBookmarks/{bookmarkId}')
+    .onDelete((snap, context) => {
+        const bookmarkData = snap.data();
+        const postId = bookmarkData.postId;
+        const creatorId = bookmarkData.userId;
+
+        return db
+            .collection('posts')
+            .doc(creatorId)
+            .collection('userPosts')
+            .doc(postId)
+            .update({
+                bookmarkCount: admin.firestore.FieldValue.increment(-1)
+            })
+    })
+

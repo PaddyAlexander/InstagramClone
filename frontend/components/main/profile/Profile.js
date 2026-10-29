@@ -14,9 +14,11 @@ require('firebase/firestore')
 
 function Profile(props) {
     const [userPosts, setUserPosts] = useState([]);
+    const [savedPosts, setSavedPosts] = useState([]);
     const [user, setUser] = useState(null);
     const [loading, setLoading] = useState(true);
     const [following, setFollowing] = useState(false)
+    const [activeTab, setActiveTab] = useState('posts')
 
     useEffect(() => {
         const { currentUser, posts } = props;
@@ -25,6 +27,21 @@ function Profile(props) {
             setUser(currentUser)
             setUserPosts(posts)
             setLoading(false)
+            
+            // Fetch saved posts for current user
+            firebase.firestore()
+                .collection("bookmarks")
+                .doc(firebase.auth().currentUser.uid)
+                .collection("userBookmarks")
+                .orderBy("timestamp", "desc")
+                .onSnapshot((snapshot) => {
+                    let bookmarks = snapshot.docs.map(doc => {
+                        const data = doc.data();
+                        const id = doc.id;
+                        return { id, ...data }
+                    })
+                    setSavedPosts(bookmarks)
+                })
         }
         else {
             firebase.firestore()
@@ -187,32 +204,64 @@ function Profile(props) {
             </View>
 
             <View style={[utils.borderTopGray]}>
+                {props.route.params.uid === firebase.auth().currentUser.uid ? (
+                    <View style={[container.horizontal, { borderBottomWidth: 1, borderColor: 'lightgrey' }]}>
+                        <TouchableOpacity
+                            style={[{ flex: 1, paddingVertical: 15, borderBottomWidth: activeTab === 'posts' ? 2 : 0, borderBottomColor: activeTab === 'posts' ? 'black' : 'transparent' }]}
+                            onPress={() => setActiveTab('posts')}>
+                            <Text style={[text.center, text.bold]}>Posts</Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity
+                            style={[{ flex: 1, paddingVertical: 15, borderBottomWidth: activeTab === 'saved' ? 2 : 0, borderBottomColor: activeTab === 'saved' ? 'black' : 'transparent' }]}
+                            onPress={() => setActiveTab('saved')}>
+                            <Text style={[text.center, text.bold]}>Saved</Text>
+                        </TouchableOpacity>
+                    </View>
+                ) : null}
                 <FlatList
                     numColumns={3}
                     horizontal={false}
-                    data={userPosts}
+                    data={activeTab === 'posts' ? userPosts : savedPosts}
                     style={{}}
                     renderItem={({ item }) => (
                         <TouchableOpacity
                             style={[container.containerImage, utils.borderWhite]}
-                            onPress={() => props.navigation.navigate("Post", { item, user })}>
+                            onPress={() => {
+                                if (activeTab === 'saved') {
+                                    // For saved posts, we need to fetch the full post data
+                                    props.navigation.navigate("Post", { item: item.postData, user: { uid: item.userId } })
+                                } else {
+                                    props.navigation.navigate("Post", { item, user })
+                                }
+                            }}>
 
-                            {item.type == 0 ?
-
-                                <CachedImage
-                                    cacheKey={item.id}
-                                    style={container.image}
-                                    source={{ uri: item.downloadURLStill }}
-                                />
-
-                                :
-
-                                <CachedImage
-                                    cacheKey={item.id}
-                                    style={container.image}
-                                    source={{ uri: item.downloadURL }}
-                                />
-                            }
+                            {activeTab === 'saved' ? (
+                                item.postData.type == 0 ?
+                                    <CachedImage
+                                        cacheKey={item.postData.id}
+                                        style={container.image}
+                                        source={{ uri: item.postData.downloadURLStill }}
+                                    />
+                                    :
+                                    <CachedImage
+                                        cacheKey={item.postData.id}
+                                        style={container.image}
+                                        source={{ uri: item.postData.downloadURL }}
+                                    />
+                            ) : (
+                                item.type == 0 ?
+                                    <CachedImage
+                                        cacheKey={item.id}
+                                        style={container.image}
+                                        source={{ uri: item.downloadURLStill }}
+                                    />
+                                    :
+                                    <CachedImage
+                                        cacheKey={item.id}
+                                        style={container.image}
+                                        source={{ uri: item.downloadURL }}
+                                    />
+                            )}
                         </TouchableOpacity>
 
                     )}
