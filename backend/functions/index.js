@@ -28,6 +28,38 @@ exports.removeLike = functions.firestore.document('/posts/{creatorId}/userPosts/
             })
     })
 
+exports.addSave = functions.firestore.document('/saves/{userId}/userSaves/{postId}')
+    .onCreate((snap, context) => {
+        const creatorId = snap.data().creatorId;
+        if (!creatorId) {
+            return null;
+        }
+        return db
+            .collection("posts")
+            .doc(creatorId)
+            .collection("userPosts")
+            .doc(context.params.postId)
+            .update({
+                savesCount: admin.firestore.FieldValue.increment(1)
+            })
+    });
+exports.removeSave = functions.firestore.document('/saves/{userId}/userSaves/{postId}')
+    .onDelete((snap, context) => {
+        const creatorId = snap.data().creatorId;
+        if (!creatorId) {
+            return null;
+        }
+        return db
+            .collection('posts')
+            .doc(creatorId)
+            .collection('userPosts')
+            .doc(context.params.postId)
+            .update({
+                savesCount: admin.firestore.FieldValue.increment(-1)
+            })
+            .catch(() => null)
+    })
+
 
 exports.addFollower = functions.firestore.document('/following/{userId}/userFollowing/{FollowingId}')
     .onCreate((snap, context) => {

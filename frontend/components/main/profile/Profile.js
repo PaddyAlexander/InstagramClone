@@ -1,4 +1,4 @@
-import { FontAwesome5 } from '@expo/vector-icons';
+import { FontAwesome5, Feather } from '@expo/vector-icons';
 import firebase from 'firebase';
 import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, FlatList, Image, Text, TouchableOpacity, View } from 'react-native';
@@ -17,6 +17,54 @@ function Profile(props) {
     const [user, setUser] = useState(null);
     const [loading, setLoading] = useState(true);
     const [following, setFollowing] = useState(false)
+    const [activeTab, setActiveTab] = useState('posts')
+    const [savedPosts, setSavedPosts] = useState([])
+
+    const isCurrentUser = props.route.params.uid === firebase.auth().currentUser.uid;
+
+    useEffect(() => {
+        if (!isCurrentUser) {
+            setActiveTab('posts')
+            setSavedPosts([])
+            return;
+        }
+        let cancelled = false;
+        const saves = props.saves || [];
+
+        Promise.all(saves.map((save) => {
+            if (!save.creatorId) {
+                return Promise.resolve(null);
+            }
+            const postPromise = firebase.firestore()
+                .collection("posts")
+                .doc(save.creatorId)
+                .collection("userPosts")
+                .doc(save.id)
+                .get()
+            const userPromise = firebase.firestore()
+                .collection("users")
+                .doc(save.creatorId)
+                .get()
+            return Promise.all([postPromise, userPromise])
+                .then(([postSnapshot, userSnapshot]) => {
+                    if (!postSnapshot.exists || !userSnapshot.exists) {
+                        return null;
+                    }
+                    return {
+                        id: postSnapshot.id,
+                        ...postSnapshot.data(),
+                        user: { uid: userSnapshot.id, ...userSnapshot.data() }
+                    }
+                })
+                .catch(() => null)
+        })).then((posts) => {
+            if (!cancelled) {
+                setSavedPosts(posts.filter((post) => post !== null))
+            }
+        })
+
+        return () => { cancelled = true }
+    }, [props.saves, isCurrentUser])
 
     useEffect(() => {
         const { currentUser, posts } = props;
@@ -187,15 +235,35 @@ function Profile(props) {
             </View>
 
             <View style={[utils.borderTopGray]}>
+                {isCurrentUser ?
+                    <View style={[container.horizontal, { justifyContent: 'space-around', paddingVertical: 10 }]}>
+                        <TouchableOpacity
+                            style={[container.horizontal, { alignItems: 'center' }]}
+                            onPress={() => setActiveTab('posts')}>
+                            <Feather name="grid" size={20} color={activeTab === 'posts' ? 'black' : 'grey'} />
+                            <Text style={[{ marginLeft: 5, color: activeTab === 'posts' ? 'black' : 'grey' }, activeTab === 'posts' ? text.bold : null]}>Posts</Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity
+                            style={[container.horizontal, { alignItems: 'center' }]}
+                            onPress={() => setActiveTab('saved')}>
+                            <Feather name="bookmark" size={20} color={activeTab === 'saved' ? 'black' : 'grey'} />
+                            <Text style={[{ marginLeft: 5, color: activeTab === 'saved' ? 'black' : 'grey' }, activeTab === 'saved' ? text.bold : null]}>Saved</Text>
+                        </TouchableOpacity>
+                    </View>
+                    : null}
+                {activeTab === 'saved' && savedPosts.length === 0 ?
+                    <Text style={[text.notAvailable, { marginTop: 20 }]}>No saved posts yet</Text>
+                    : null}
                 <FlatList
                     numColumns={3}
                     horizontal={false}
-                    data={userPosts}
+                    data={activeTab === 'saved' ? savedPosts : userPosts}
+                    keyExtractor={(item) => activeTab === 'saved' ? `${item.user.uid}_${item.id}` : item.id}
                     style={{}}
                     renderItem={({ item }) => (
                         <TouchableOpacity
                             style={[container.containerImage, utils.borderWhite]}
-                            onPress={() => props.navigation.navigate("Post", { item, user })}>
+                            onPress={() => props.navigation.navigate("Post", { item, user: activeTab === 'saved' ? item.user : user })}>
 
                             {item.type == 0 ?
 
@@ -227,7 +295,8 @@ function Profile(props) {
 const mapStateToProps = (store) => ({
     currentUser: store.userState.currentUser,
     posts: store.userState.posts,
-    following: store.userState.following
+    following: store.userState.following,
+    saves: store.userState.saves
 
 })
 
