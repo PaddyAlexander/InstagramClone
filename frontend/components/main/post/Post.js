@@ -10,7 +10,7 @@ import { Divider, Snackbar } from 'react-native-paper';
 import ParsedText from 'react-native-parsed-text';
 import { connect } from 'react-redux';
 import { bindActionCreators } from 'redux';
-import { deletePost, fetchUserPosts, sendNotification } from '../../../redux/actions/index';
+import { deletePost, fetchUserPosts, savePost, sendNotification, unsavePost } from '../../../redux/actions/index';
 import { container, text, utils } from '../../styles';
 import { timeDifference } from '../../utils';
 import CachedImage from '../random/CachedImage';
@@ -24,6 +24,7 @@ function Post(props) {
     const [item, setItem] = useState(props.route.params.item)
     const [user, setUser] = useState(props.route.params.user)
     const [currentUserLike, setCurrentUserLike] = useState(false)
+    const [currentUserSave, setCurrentUserSave] = useState(false)
     const [unmutted, setUnmutted] = useState(true)
     const [videoref, setvideoref] = useState(null)
     const [sheetRef, setSheetRef] = useState(useRef(null))
@@ -109,6 +110,26 @@ function Post(props) {
     }, [props.route.params.notification, props.route.params.item])
 
     useEffect(() => {
+        const postId = props.route.params.notification != undefined
+            ? props.route.params.item
+            : (props.route.params.item ? props.route.params.item.id : undefined);
+        if (postId == undefined) {
+            return;
+        }
+
+        const listener = firebase.firestore()
+            .collection("saves")
+            .doc(firebase.auth().currentUser.uid)
+            .collection("userSaves")
+            .doc(postId)
+            .onSnapshot((snapshot) => {
+                setCurrentUserSave(snapshot.exists)
+            })
+
+        return () => listener()
+    }, [props.route.params.notification, props.route.params.item])
+
+    useEffect(() => {
         if (videoref !== null) {
             videoref.setIsMutedAsync(props.route.params.unmutted)
         }
@@ -158,6 +179,16 @@ function Post(props) {
             .collection("likes")
             .doc(firebase.auth().currentUser.uid)
             .delete()
+    }
+    const onSavePress = (userId, postId) => {
+        setCurrentUserSave(true)
+        props.savePost(userId, postId)
+            .catch(() => setCurrentUserSave(false))
+    }
+    const onUnsavePress = (postId) => {
+        setCurrentUserSave(false)
+        props.unsavePost(postId)
+            .catch(() => setCurrentUserSave(true))
     }
     if (!exists && loaded) {
         return (
@@ -350,6 +381,15 @@ function Post(props) {
                     <Feather style={utils.margin15Left} name="message-square" size={30} color="black" onPress={() => props.navigation.navigate('Comment', { postId: item.id, uid: user.uid, user })} />
                     <Feather style={utils.margin15Left} name="share" size={26} color="black" onPress={() => props.navigation.navigate('ChatList', { postId: item.id, post: { ...item, user: user }, share: true })} />
 
+                    {currentUserSave ?
+                        (
+                            <FontAwesome5 style={{ marginLeft: 'auto' }} name="bookmark" solid size={28} color="black" onPress={() => onUnsavePress(item.id)} />
+                        )
+                        :
+                        (
+                            <Feather style={{ marginLeft: 'auto' }} name="bookmark" size={30} color="black" onPress={() => onSavePress(user.uid, item.id)} />
+                        )
+                    }
 
                 </View>
                 <View style={[container.container, utils.padding10Sides]}>
@@ -451,6 +491,6 @@ const mapStateToProps = (store) => ({
     usersFollowingLoaded: store.usersState.usersFollowingLoaded,
 })
 
-const mapDispatchProps = (dispatch) => bindActionCreators({ sendNotification, fetchUserPosts, deletePost }, dispatch);
+const mapDispatchProps = (dispatch) => bindActionCreators({ sendNotification, fetchUserPosts, deletePost, savePost, unsavePost }, dispatch);
 
 export default connect(mapStateToProps, mapDispatchProps)(Post);

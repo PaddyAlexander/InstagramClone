@@ -1,10 +1,11 @@
-import { CLEAR_DATA, USER_CHATS_STATE_CHANGE, USER_FOLLOWING_STATE_CHANGE, USER_POSTS_STATE_CHANGE, USER_STATE_CHANGE } from "../constants"
+import { CLEAR_DATA, USER_CHATS_STATE_CHANGE, USER_FOLLOWING_STATE_CHANGE, USER_POSTS_STATE_CHANGE, USER_SAVES_STATE_CHANGE, USER_STATE_CHANGE } from "../constants"
 
 const initialState = {
     currentUser: null,
     posts: [],
     chats: [],
     following: [],
+    saves: [],
 }
 
 export const user = (state = initialState, action) => {
@@ -31,6 +32,11 @@ export const user = (state = initialState, action) => {
                 chats: action.chats
             }
         }
+        case USER_SAVES_STATE_CHANGE:
+            return {
+                ...state,
+                saves: action.saves
+            }
         case CLEAR_DATA:
             return initialState
         default:

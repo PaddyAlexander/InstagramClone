@@ -1,7 +1,7 @@
 import * as Notifications from 'expo-notifications';
 import firebase from 'firebase';
 import { Constants } from 'react-native-unimodules';
-import { CLEAR_DATA, USERS_DATA_STATE_CHANGE, USERS_LIKES_STATE_CHANGE, USERS_POSTS_STATE_CHANGE, USER_CHATS_STATE_CHANGE, USER_FOLLOWING_STATE_CHANGE, USER_POSTS_STATE_CHANGE, USER_STATE_CHANGE } from '../constants/index';
+import { CLEAR_DATA, USERS_DATA_STATE_CHANGE, USERS_LIKES_STATE_CHANGE, USERS_POSTS_STATE_CHANGE, USER_CHATS_STATE_CHANGE, USER_FOLLOWING_STATE_CHANGE, USER_POSTS_STATE_CHANGE, USER_SAVES_STATE_CHANGE, USER_STATE_CHANGE } from '../constants/index';
 require('firebase/firestore')
 
 
@@ -23,6 +23,7 @@ export function reload() {
         dispatch(fetchUserPosts())
         dispatch(fetchUserFollowing())
         dispatch(fetchUserChats())
+        dispatch(fetchUserSaves())
 
     })
 }
@@ -175,6 +176,50 @@ export function fetchUserFollowing() {
                 }
             })
         unsubscribe.push(listener)
+    })
+}
+
+export function fetchUserSaves() {
+    return ((dispatch) => {
+        let listener = firebase.firestore()
+            .collection("saves")
+            .doc(firebase.auth().currentUser.uid)
+            .collection("userSaves")
+            .orderBy("timestamp", "desc")
+            .onSnapshot((snapshot) => {
+                let saves = snapshot.docs.map(doc => {
+                    const data = doc.data();
+                    const id = doc.id;
+                    return { id, ...data }
+                })
+                dispatch({ type: USER_SAVES_STATE_CHANGE, saves })
+            })
+        unsubscribe.push(listener)
+    })
+}
+
+export function savePost(creatorId, postId) {
+    return (() => {
+        return firebase.firestore()
+            .collection("saves")
+            .doc(firebase.auth().currentUser.uid)
+            .collection("userSaves")
+            .doc(postId)
+            .set({
+                creatorId,
+                timestamp: firebase.firestore.FieldValue.serverTimestamp()
+            })
+    })
+}
+
+export function unsavePost(postId) {
+    return (() => {
+        return firebase.firestore()
+            .collection("saves")
+            .doc(firebase.auth().currentUser.uid)
+            .collection("userSaves")
+            .doc(postId)
+            .delete()
     })
 }
 
