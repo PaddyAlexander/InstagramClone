@@ -10,7 +10,7 @@ import { Divider, Snackbar } from 'react-native-paper';
 import ParsedText from 'react-native-parsed-text';
 import { connect } from 'react-redux';
 import { bindActionCreators } from 'redux';
-import { deletePost, fetchUserPosts, savePost, sendNotification, unsavePost } from '../../../redux/actions/index';
+import { deletePost, fetchUserPosts, savePost, unsavePost } from '../../../redux/actions/index';
 import { container, text, utils } from '../../styles';
 import { timeDifference } from '../../utils';
 import CachedImage from '../random/CachedImage';
@@ -164,8 +164,6 @@ function Post(props) {
             .doc(firebase.auth().currentUser.uid)
             .set({})
             .then()
-        props.sendNotification(user.notificationToken, "New Like", `${props.currentUser.name} liked your post`, { type: 0, postId, user: firebase.auth().currentUser.uid })
-
     }
     const onDislikePress = (userId, postId, item) => {
         item.likesCount -= 1;
@@ -491,6 +489,6 @@ const mapStateToProps = (store) => ({
     usersFollowingLoaded: store.usersState.usersFollowingLoaded,
 })
 
-const mapDispatchProps = (dispatch) => bindActionCreators({ sendNotification, fetchUserPosts, deletePost, savePost, unsavePost }, dispatch);
+const mapDispatchProps = (dispatch) => bindActionCreators({ fetchUserPosts, deletePost, savePost, unsavePost }, dispatch);
 
 export default connect(mapStateToProps, mapDispatchProps)(Post);

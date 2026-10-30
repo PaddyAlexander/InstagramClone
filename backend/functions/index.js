@@ -147,6 +147,88 @@ exports.addFollowerNotification = functions.firestore.document('/following/{user
         }
     })
 
+exports.addLikeNotification = functions.firestore.document('/posts/{creatorId}/userPosts/{postId}/likes/{userId}')
+    .onCreate(async (snap, context) => {
+        const likerId = context.params.userId;
+        const creatorId = context.params.creatorId;
+
+        if (likerId === creatorId) {
+            return null;
+        }
+
+        try {
+            const [creatorDoc, likerDoc] = await Promise.all([
+                db.collection('users').doc(creatorId).get(),
+                db.collection('users').doc(likerId).get()
+            ]);
+
+            if (!creatorDoc.exists || !likerDoc.exists) {
+                console.log(`addLikeNotification: user document missing (creator: ${creatorDoc.exists}, liker: ${likerDoc.exists})`);
+                return null;
+            }
+
+            const token = creatorDoc.data().notificationToken;
+            if (!token) {
+                console.log(`addLikeNotification: user ${creatorId} has no notification token`);
+                return null;
+            }
+
+            const likerName = likerDoc.data().name;
+            await sendPushNotification(
+                token,
+                'New Like',
+                `${likerName} liked your post`,
+                { type: 0, postId: context.params.postId, user: likerId }
+            );
+            console.log(`addLikeNotification: notified ${creatorId} about like from ${likerId} on post ${context.params.postId}`);
+            return null;
+        } catch (error) {
+            console.error('addLikeNotification failed', error);
+            return null;
+        }
+    })
+
+exports.addCommentNotification = functions.firestore.document('/posts/{creatorId}/userPosts/{postId}/comments/{commentId}')
+    .onCreate(async (snap, context) => {
+        const commenterId = snap.data().creator;
+        const creatorId = context.params.creatorId;
+
+        if (!commenterId || commenterId === creatorId) {
+            return null;
+        }
+
+        try {
+            const [creatorDoc, commenterDoc] = await Promise.all([
+                db.collection('users').doc(creatorId).get(),
+                db.collection('users').doc(commenterId).get()
+            ]);
+
+            if (!creatorDoc.exists || !commenterDoc.exists) {
+                console.log(`addCommentNotification: user document missing (creator: ${creatorDoc.exists}, commenter: ${commenterDoc.exists})`);
+                return null;
+            }
+
+            const token = creatorDoc.data().notificationToken;
+            if (!token) {
+                console.log(`addCommentNotification: user ${creatorId} has no notification token`);
+                return null;
+            }
+
+            const commenterName = commenterDoc.data().name;
+            await sendPushNotification(
+                token,
+                'New Comment',
+                `${commenterName} Commented on your post`,
+                { type: 0, user: commenterId }
+            );
+            console.log(`addCommentNotification: notified ${creatorId} about comment from ${commenterId} on post ${context.params.postId}`);
+            return null;
+        } catch (error) {
+            console.error('addCommentNotification failed', error);
+            return null;
+        }
+    })
+
 exports.removeFollower = functions.firestore.document('/following/{userId}/userFollowing/{FollowingId}')
     .onDelete((snap, context) => {
         return db
