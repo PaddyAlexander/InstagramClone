@@ -4,7 +4,7 @@ import React, { useEffect, useState } from 'react';
 import { FlatList, Image, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { connect } from 'react-redux';
 import { bindActionCreators } from 'redux';
-import { fetchUsersData, sendNotification } from '../../../redux/actions/index';
+import { fetchUsersData } from '../../../redux/actions/index';
 import { container, text, utils } from '../../styles';
 import { timeDifference } from '../../utils';
 
@@ -85,16 +85,6 @@ function Comment(props) {
 
                 setRefresh(true)
             })
-
-        firebase.firestore()
-            .collection("users")
-            .doc(props.route.params.uid)
-            .get()
-            .then((snapshot) => {
-                props.sendNotification(snapshot.data().notificationToken, "New Comment", `${props.currentUser.name} Commented on your post`, { type: 0, user: firebase.auth().currentUser.uid })
-            })
-
-
     }
 
     return (
@@ -199,6 +189,6 @@ const mapStateToProps = (store) => ({
     users: store.usersState.users,
     currentUser: store.userState.currentUser
 })
-const mapDispatchProps = (dispatch) => bindActionCreators({ fetchUsersData, sendNotification }, dispatch);
+const mapDispatchProps = (dispatch) => bindActionCreators({ fetchUsersData }, dispatch);
 
 export default connect(mapStateToProps, mapDispatchProps)(Comment);
