@@ -4,8 +4,6 @@ import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, FlatList, Image, Text, TouchableOpacity, View } from 'react-native';
 import { ScrollView } from 'react-native-gesture-handler';
 import { connect } from 'react-redux';
-import { bindActionCreators } from 'redux';
-import { sendNotification } from '../../../redux/actions/index';
 import { container, text, utils } from '../../styles';
 import CachedImage from '../random/CachedImage';
 require('firebase/firestore')
@@ -122,8 +120,6 @@ function Profile(props) {
             .collection("userFollowing")
             .doc(props.route.params.uid)
             .set({})
-
-        props.sendNotification(user.notificationToken, "New Follower", `${props.currentUser.name} Started following you`, { type: 'profile', user: firebase.auth().currentUser.uid })
     }
     const onUnfollow = () => {
         firebase.firestore()
@@ -300,7 +296,5 @@ const mapStateToProps = (store) => ({
 
 })
 
-const mapDispatchProps = (dispatch) => bindActionCreators({ sendNotification }, dispatch);
-
-export default connect(mapStateToProps, mapDispatchProps)(Profile);
+export default connect(mapStateToProps)(Profile);
 
